@@ -106,7 +106,7 @@ class App(object):
         self.mapping = MapGen()
         width, height = self.mapping.MAP_SIZE
         start_x, start_y = self.screen_rect.midtop
-        start_x - 200
+        start_x -= 100
         start_y += 100
         row_offset = -45, 22
         col_offset = 57, 5
