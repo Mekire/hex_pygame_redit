@@ -11,14 +11,14 @@ FPS = 60
 
 
 TERRAIN = [("Water", 0.3), ("Beach", 0.35), ("Desert", 0.45), ("Jungle", 0.5),
-           ("Forest", 0.65), ("Savannah", 0.8), ("Snow", 1)]
+           ("Forest", 0.65), ("Mountain", 0.8), ("Snow", 1)]
 
 
 TERRAIN_COLORS = {"Water" : pg.Color("lightblue3"),
                   "Beach" : pg.Color("tan"),
                   "Forest" : pg.Color("Forestgreen"),
                   "Jungle" : pg.Color("darkgreen"),
-                  "Savannah" : pg.Color("sienna"),
+                  "Mountain" : pg.Color("sienna"),
                   "Desert" : pg.Color("gold"),
                   "Snow" : pg.Color("white")}
 
@@ -27,7 +27,7 @@ TERRAIN_HEIGHTS = {"Water" : 5,
                    "Beach": 10,
                    "Forest": 20,
                    "Jungle": 30,
-                   "Savannah": 40,
+                   "Mountain": 40,
                    "Desert": 15,
                    "Snow": 50}
 
@@ -102,7 +102,7 @@ class HexTile(pg.sprite.Sprite):
 
 class CursorHighlight(pg.sprite.Sprite):
     FOOTPRINT_SIZE = (65, 32)
-    COLOR = (0, 0, 150, 100)
+    COLOR = (50, 50, 200, 150)
     
     def __init__(self, *groups):
         super(CursorHighlight, self).__init__(*groups) 
@@ -119,15 +119,16 @@ class CursorHighlight(pg.sprite.Sprite):
         self.label_image = None
         self.label_rect = None
 
-    def update(self, pos, tiles):
+    def update(self, pos, tiles, screen_rect):
         self.rect.topleft = pos
         hits = pg.sprite.spritecollide(self, tiles, 0, pg.sprite.collide_mask)
         if hits:
-            true_hit = max(hits, key=lambda x: x.rect.bottomleft)
+            true_hit = max(hits, key=lambda x: x.rect.bottom)
             self.target = true_hit.rect.topleft
             self.biome = true_hit.biome
             self.label_image = FONT.render(self.biome, 1, pg.Color("white"))
             self.label_rect = self.label_image.get_rect(midbottom=pos)
+            self.label_rect.clamp_ip(screen_rect)
             self.do_draw = True
         else:
             self.biome = None
@@ -169,7 +170,7 @@ class App(object):
         for sprite in self.tiles:
             if sprite.layer != sprite.rect.bottom:
                 self.tiles.change_layer(sprite, sprite.rect.bottom)
-        self.cursor.update(pg.mouse.get_pos(), self.tiles)
+        self.cursor.update(pg.mouse.get_pos(), self.tiles, self.screen_rect)
 
     def render(self):
         self.screen.fill(BACKGROUND)
