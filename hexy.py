@@ -5,12 +5,12 @@ import opensimplex as simp
 
 
 BACKGROUND = pg.Color("darkslategray")
-SCREEN_SIZE = (1200, 500)
+SCREEN_SIZE = (1200, 525)
 FPS = 60
 
 
-TERRAIN = [("water", 0.2), ("beach", 0.3), ("desert", 0.4), ("jungle", 0.5),
-           ("savannah", 0.65), ("forest", 0.8), ("snow", 1)]
+TERRAIN = [("water", 0.3), ("beach", 0.35), ("desert", 0.45), ("jungle", 0.5),
+           ("forest", 0.65), ("savannah", 0.8), ("snow", 1)]
 
 
 TERRAIN_COLORS = {"water" : pg.Color("lightblue3"),
@@ -22,20 +22,17 @@ TERRAIN_COLORS = {"water" : pg.Color("lightblue3"),
                   "snow" : pg.Color("white")}
 
 
-TERRAIN_HEIGHTS = {tuple(TERRAIN_COLORS["water"]) : 5,
-                   tuple(TERRAIN_COLORS["beach"]): 15,
-                   tuple(TERRAIN_COLORS["forest"]): 20,
-                   tuple(TERRAIN_COLORS["jungle"]): 30,
-                   tuple(TERRAIN_COLORS["savannah"]): 40,
-                   tuple(TERRAIN_COLORS["desert"]): 25,
-                   tuple(TERRAIN_COLORS["snow"]): 50}
+TERRAIN_HEIGHTS = {"water" : 5,
+                   "beach": 10,
+                   "forest": 20,
+                   "jungle": 30,
+                   "savannah": 40,
+                   "desert": 15,
+                   "snow": 50}
 
 
 class MapGen(object):
-    MAP_SIZE = 15, 20
-    TILE_SIZE = 1,1
-    WIDTH = MAP_SIZE[0]//TILE_SIZE[0]
-    HEIGHT = MAP_SIZE[1]//TILE_SIZE[1]
+    WIDTH, HEIGHT = 15, 20
     
     def __init__(self):
         self.seed = random.randrange(2**32)
@@ -56,14 +53,12 @@ class MapGen(object):
                 vals[x,y] = self.noise(gen, nx, ny, freq)
         return vals
 
-
     def gen_map(self, noise):
-        mapping = pg.Surface(self.MAP_SIZE).convert()
+        mapping = [["biome"]*self.HEIGHT for _ in range(self.WIDTH)]
         for x,y in noise:
-            pos = self.TILE_SIZE[0]*x, self.TILE_SIZE[1]*y
             for biome, tolerance in TERRAIN:
                 if noise[x,y] < tolerance:
-                    mapping.fill(TERRAIN_COLORS[biome], (pos, self.TILE_SIZE))
+                    mapping[y][x] = biome
                     break
         return mapping
 
@@ -80,13 +75,13 @@ class HexTile(pg.sprite.Sprite):
         bottom = [points[-1], points[2]] + [(x, y+h) for x,y in points[2:]]
         image = pg.Surface((65,32+h)).convert_alpha()
         image.fill((0,0,0,0))
-        bottom_col = [.5*col for col in color[:3]]
+        bottom_col = [.7*col for col in color[:3]]
         pg.draw.polygon(image, bottom_col, bottom)
         pg.draw.polygon(image, color, points)
-        pg.draw.lines(image, pg.Color(" black"), 1, points, 2)
-        for start, end in zip(points[2:],bottom[2:]):
-            pg.draw.line(image, pg.Color("black"), start, end, 1)
-        pg.draw.lines(image, pg.Color(" black"), 0, bottom[2:], 2)
+        pg.draw.lines(image, pg.Color("black"), 1, points, 2)
+        ##for start, end in zip(points[2:],bottom[2:]):
+            ##pg.draw.line(image, pg.Color("black"), start, end, 1)
+        pg.draw.lines(image, pg.Color("black"), 0, bottom[2:], 2)
         return image
 
     def draw(self, surface):
@@ -104,7 +99,7 @@ class App(object):
     def make_map(self):
         tiles = pg.sprite.LayeredUpdates()
         self.mapping = MapGen()
-        width, height = self.mapping.MAP_SIZE
+        width, height = self.mapping.WIDTH, self.mapping.HEIGHT
         start_x, start_y = self.screen_rect.midtop
         start_x -= 100
         start_y += 100
@@ -112,52 +107,30 @@ class App(object):
         col_offset = 57, 5
         for i in range(width):
             for j in range(height):
-                color = self.mapping.terrain.get_at((i,j))
-                if color == (0,0,0):
-                    break
+                biome = self.mapping.terrain[i][j]
+                color = TERRAIN_COLORS[biome]
                 pos = (start_x + row_offset[0]*i + col_offset[0]*j,
                        start_y + row_offset[1]*i + col_offset[1]*j)
-                h = TERRAIN_HEIGHTS[tuple(color)]
+                h = TERRAIN_HEIGHTS[biome]
                 HexTile(pos, color, h, tiles)
         return tiles
         
     def update(self):
-        """
-        All updates to all actors occur here.
-        Exceptions include things that are direct results of events which
-        may occasionally occur in the event loop.
-
-        For example, updates based on held keys should be found here, but
-        updates to single KEYDOWN events would be found in the event loop.
-        """
         for sprite in self.tiles:
             if sprite.layer != sprite.rect.bottom:
                 self.tiles.change_layer(sprite, sprite.rect.bottom)
 
     def render(self):
-        """
-        All calls to drawing functions here.
-        No game logic.
-        """
         self.screen.fill(BACKGROUND)
         self.tiles.draw(self.screen)
         pg.display.update()
 
     def event_loop(self):
-        """
-        Event handling here.  Only things that are explicit results of the
-        given events should be found here.  Do not confuse the event and update
-        phases.
-        """
         for event in pg.event.get():
            if event.type == pg.QUIT:
                self.done = True
 
     def main_loop(self):
-        """
-        Main loop for your whole app.  This doesn't need to be touched until
-        you start writing framerate independant games.
-        """
         while not self.done:
             self.event_loop()
             self.update()
@@ -166,10 +139,6 @@ class App(object):
 
 
 def main():
-    """
-    Prepare pygame and the display and create an App instance.
-    Call the app instance's main_loop function to begin the App.
-    """
     pg.init()
     pg.display.set_mode(SCREEN_SIZE)
     App().main_loop()
