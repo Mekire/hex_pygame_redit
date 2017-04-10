@@ -10,13 +10,13 @@ SCREEN_SIZE = (1200, 525)
 FPS = 60
 
 
-TERRAIN = [("Water", 0.3), ("Beach", 0.35), ("Desert", 0.45), ("Jungle", 0.5),
-           ("Forest", 0.65), ("Mountain", 0.8), ("Snow", 1)]
+TERRAIN = [("Water", 0.3), ("Beach", 0.35), ("Desert", 0.45), ("Forest", 0.5),
+           ("Jungle", 0.7), ("Mountain", 0.8), ("Snow", 1)]
 
 
 TERRAIN_COLORS = {"Water" : pg.Color("lightblue3"),
                   "Beach" : pg.Color("tan"),
-                  "Forest" : pg.Color("Forestgreen"),
+                  "Forest" : pg.Color("forestgreen"),
                   "Jungle" : pg.Color("darkgreen"),
                   "Mountain" : pg.Color("sienna"),
                   "Desert" : pg.Color("gold"),
@@ -25,10 +25,10 @@ TERRAIN_COLORS = {"Water" : pg.Color("lightblue3"),
 
 TERRAIN_HEIGHTS = {"Water" : 5,
                    "Beach": 10,
+                   "Desert": 15,
                    "Forest": 20,
                    "Jungle": 30,
                    "Mountain": 40,
-                   "Desert": 15,
                    "Snow": 50}
 
 
