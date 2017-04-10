@@ -80,15 +80,15 @@ class HexTile(pg.sprite.Sprite):
     def make_tile(self, biome):
         h = self.height
         points = (8,4), (45,0), (64,10), (57,27), (20,31), (0,22)
-        bottom = [points[-1], points[2]] + [(x, y+h) for x,y in points[2:]]
+        bottom = [points[-1], points[2]] + [(x, y+h-1) for x,y in points[2:]]
         image = pg.Surface((65,32+h)).convert_alpha()
         image.fill(TRANSPARENT)
-        bottom_col = [.7*col for col in self.color[:3]]
+        bottom_col = [.5*col for col in self.color[:3]]
         pg.draw.polygon(image, bottom_col, bottom)
         pg.draw.polygon(image, self.color, points)
         pg.draw.lines(image, pg.Color("black"), 1, points, 2)
-        ##for start, end in zip(points[2:],bottom[2:]):
-            ##pg.draw.line(image, pg.Color("black"), start, end, 1)
+        for start, end in zip(points[2:],bottom[2:]):
+            pg.draw.line(image, pg.Color("black"), start, end, 1)
         pg.draw.lines(image, pg.Color("black"), 0, bottom[2:], 2)
         return image
 
@@ -114,11 +114,17 @@ class CursorHighlight(pg.sprite.Sprite):
         self.mask = pg.Mask((1,1))
         self.mask.fill()
         self.target = None
-        self.do_draw = False
         self.biome = None
+        self.label_dict = self.make_labels()
         self.label_image = None
         self.label_rect = None
-
+        
+    def make_labels(self):
+        labels = {}
+        for biome, _ in TERRAIN:
+            labels[biome] = outline_render(biome, FONT, pg.Color("white"), 2)
+        return labels
+            
     def update(self, pos, tiles, screen_rect):
         self.rect.topleft = pos
         hits = pg.sprite.spritecollide(self, tiles, 0, pg.sprite.collide_mask)
@@ -126,16 +132,14 @@ class CursorHighlight(pg.sprite.Sprite):
             true_hit = max(hits, key=lambda x: x.rect.bottom)
             self.target = true_hit.rect.topleft
             self.biome = true_hit.biome
-            self.label_image = FONT.render(self.biome, 1, pg.Color("white"))
+            self.label_image = self.label_dict[self.biome]
             self.label_rect = self.label_image.get_rect(midbottom=pos)
             self.label_rect.clamp_ip(screen_rect)
-            self.do_draw = True
         else:
             self.biome = None
-            self.do_draw = False
 
     def draw(self, surface):
-        if self.do_draw:
+        if self.biome:
             surface.blit(self.image, self.target)
             surface.blit(self.label_image, self.label_rect)
         
@@ -191,11 +195,27 @@ class App(object):
             self.clock.tick(FPS)
 
 
+def outline_render(text, font, color, width, outline=pg.Color("black")):
+    text_rend = font.render(text, 1, color)
+    outline_rend = font.render(text, 1, outline)
+    text_rect = text_rend.get_rect()
+    final_rect = text_rect.inflate((width*2,width*2))
+    text_rect.center = final_rect.center
+    image = pg.Surface(final_rect.size).convert_alpha()
+    image.fill(TRANSPARENT)
+    for i in range(-width, width+1):
+        for j in range(-width, width+1):
+            pos_rect = text_rect.move(i,j)
+            image.blit(outline_rend, pos_rect)
+    image.blit(text_rend, text_rect)
+    return image
+
+
 def main():
     global FONT
     pg.init()
     pg.display.set_mode(SCREEN_SIZE)
-    FONT = pg.font.Font(None, 30)
+    FONT = pg.font.SysFont("Arial", 32)
     App().main_loop()
     pg.quit()
     sys.exit()
