@@ -5,30 +5,31 @@ import opensimplex as simp
 
 
 BACKGROUND = pg.Color("darkslategray")
+TRANSPARENT = (0, 0, 0, 0)
 SCREEN_SIZE = (1200, 525)
 FPS = 60
 
 
-TERRAIN = [("water", 0.3), ("beach", 0.35), ("desert", 0.45), ("jungle", 0.5),
-           ("forest", 0.65), ("savannah", 0.8), ("snow", 1)]
+TERRAIN = [("Water", 0.3), ("Beach", 0.35), ("Desert", 0.45), ("Jungle", 0.5),
+           ("Forest", 0.65), ("Savannah", 0.8), ("Snow", 1)]
 
 
-TERRAIN_COLORS = {"water" : pg.Color("lightblue3"),
-                  "beach" : pg.Color("tan"),
-                  "forest" : pg.Color("forestgreen"),
-                  "jungle" : pg.Color("darkgreen"),
-                  "savannah" : pg.Color("sienna"),
-                  "desert" : pg.Color("gold"),
-                  "snow" : pg.Color("white")}
+TERRAIN_COLORS = {"Water" : pg.Color("lightblue3"),
+                  "Beach" : pg.Color("tan"),
+                  "Forest" : pg.Color("Forestgreen"),
+                  "Jungle" : pg.Color("darkgreen"),
+                  "Savannah" : pg.Color("sienna"),
+                  "Desert" : pg.Color("gold"),
+                  "Snow" : pg.Color("white")}
 
 
-TERRAIN_HEIGHTS = {"water" : 5,
-                   "beach": 10,
-                   "forest": 20,
-                   "jungle": 30,
-                   "savannah": 40,
-                   "desert": 15,
-                   "snow": 50}
+TERRAIN_HEIGHTS = {"Water" : 5,
+                   "Beach": 10,
+                   "Forest": 20,
+                   "Jungle": 30,
+                   "Savannah": 40,
+                   "Desert": 15,
+                   "Snow": 50}
 
 
 class MapGen(object):
@@ -64,30 +65,80 @@ class MapGen(object):
 
 
 class HexTile(pg.sprite.Sprite):
-    def __init__(self, pos, color, height, *groups):
+    FOOTPRINT_SIZE = (65, 32)
+    
+    def __init__(self, pos, biome, *groups):
         super(HexTile, self).__init__(*groups)
-        self.image = self.make_tile(color, height)
+        self.color =  TERRAIN_COLORS[biome]
+        self.height = TERRAIN_HEIGHTS[biome]
+        self.image = self.make_tile(biome)
         self.rect = self.image.get_rect(bottomleft=pos)
+        self.mask = self.make_mask()
+        self.biome = biome
         self.layer = 0
 
-    def make_tile(self, color, h):
+    def make_tile(self, biome):
+        h = self.height
         points = (8,4), (45,0), (64,10), (57,27), (20,31), (0,22)
         bottom = [points[-1], points[2]] + [(x, y+h) for x,y in points[2:]]
         image = pg.Surface((65,32+h)).convert_alpha()
-        image.fill((0,0,0,0))
-        bottom_col = [.7*col for col in color[:3]]
+        image.fill(TRANSPARENT)
+        bottom_col = [.7*col for col in self.color[:3]]
         pg.draw.polygon(image, bottom_col, bottom)
-        pg.draw.polygon(image, color, points)
+        pg.draw.polygon(image, self.color, points)
         pg.draw.lines(image, pg.Color("black"), 1, points, 2)
         ##for start, end in zip(points[2:],bottom[2:]):
             ##pg.draw.line(image, pg.Color("black"), start, end, 1)
         pg.draw.lines(image, pg.Color("black"), 0, bottom[2:], 2)
         return image
 
-    def draw(self, surface):
-        surface.blit(self.image, self.rect)
-         
+    def make_mask(self):
+        points = (8,4), (45,0), (64,10), (57,27), (20,31), (0,22)
+        temp_image = pg.Surface(self.image.get_size()).convert_alpha()
+        temp_image.fill(TRANSPARENT)
+        pg.draw.polygon(temp_image, pg.Color("red"), points)
+        return pg.mask.from_surface(temp_image)
+        
+
+class CursorHighlight(pg.sprite.Sprite):
+    FOOTPRINT_SIZE = (65, 32)
+    COLOR = (0, 0, 150, 100)
     
+    def __init__(self, *groups):
+        super(CursorHighlight, self).__init__(*groups) 
+        points = (8,4), (45,0), (64,10), (57,27), (20,31), (0,22)
+        self.image = pg.Surface(self.FOOTPRINT_SIZE).convert_alpha()
+        self.image.fill(TRANSPARENT)
+        pg.draw.polygon(self.image, self.COLOR, points)
+        self.rect = pg.Rect((0,0,1,1))
+        self.mask = pg.Mask((1,1))
+        self.mask.fill()
+        self.target = None
+        self.do_draw = False
+        self.biome = None
+        self.label_image = None
+        self.label_rect = None
+
+    def update(self, pos, tiles):
+        self.rect.topleft = pos
+        hits = pg.sprite.spritecollide(self, tiles, 0, pg.sprite.collide_mask)
+        if hits:
+            true_hit = max(hits, key=lambda x: x.rect.bottomleft)
+            self.target = true_hit.rect.topleft
+            self.biome = true_hit.biome
+            self.label_image = FONT.render(self.biome, 1, pg.Color("white"))
+            self.label_rect = self.label_image.get_rect(midbottom=pos)
+            self.do_draw = True
+        else:
+            self.biome = None
+            self.do_draw = False
+
+    def draw(self, surface):
+        if self.do_draw:
+            surface.blit(self.image, self.target)
+            surface.blit(self.label_image, self.label_rect)
+        
+
 class App(object):
     def __init__(self):
         self.screen = pg.display.get_surface()
@@ -95,6 +146,7 @@ class App(object):
         self.clock = pg.time.Clock()
         self.done = False
         self.tiles = self.make_map()
+        self.cursor = CursorHighlight()
 
     def make_map(self):
         tiles = pg.sprite.LayeredUpdates()
@@ -108,21 +160,21 @@ class App(object):
         for i in range(width):
             for j in range(height):
                 biome = self.mapping.terrain[i][j]
-                color = TERRAIN_COLORS[biome]
                 pos = (start_x + row_offset[0]*i + col_offset[0]*j,
                        start_y + row_offset[1]*i + col_offset[1]*j)
-                h = TERRAIN_HEIGHTS[biome]
-                HexTile(pos, color, h, tiles)
+                HexTile(pos, biome, tiles)
         return tiles
         
     def update(self):
         for sprite in self.tiles:
             if sprite.layer != sprite.rect.bottom:
                 self.tiles.change_layer(sprite, sprite.rect.bottom)
+        self.cursor.update(pg.mouse.get_pos(), self.tiles)
 
     def render(self):
         self.screen.fill(BACKGROUND)
         self.tiles.draw(self.screen)
+        self.cursor.draw(self.screen)
         pg.display.update()
 
     def event_loop(self):
@@ -139,8 +191,10 @@ class App(object):
 
 
 def main():
+    global FONT
     pg.init()
     pg.display.set_mode(SCREEN_SIZE)
+    FONT = pg.font.Font(None, 30)
     App().main_loop()
     pg.quit()
     sys.exit()
